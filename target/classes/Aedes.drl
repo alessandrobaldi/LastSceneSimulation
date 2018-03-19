@@ -1,0 +1,154 @@
+package br.ufes.inf.lprm.scene.examples.aedes;
+
+import java.util.List;
+import java.util.Random;
+
+import br.ufes.inf.lprm.scene.model.impl.Situation;
+import br.ufes.inf.lprm.scene.util.SituationHelper;
+import br.ufes.inf.lprm.situation.annotations.part;
+import br.ufes.inf.lprm.situation.model.events.*;
+import ca.study.scenary.entities.*;
+
+
+declare capturedMosquitoAndCallingAgent extends Situation
+	house: House @part
+	eggs: Eggs @part
+end
+
+rule "mosquitoFlying"
+	when
+		mosquito: Mosquito()
+		house: House() from mosquito.getHouse()
+		not mosquitoFlown (this.migrated==mosquito) over window:time(1d)
+	then
+		mosquitoFlown eventFlown =new mosquitoFlown();
+		eventFlown.setMigrated(mosquito);
+		house.changeMosquito(mosquito);
+		insert(eventFlown);
+		update(mosquito);
+		//update(house);
+		System.out.println("mosquito fly");
+end
+
+rule "mosquitoLayingEggs"
+	when
+		mosquito: Mosquito()
+		house: House() from mosquito.getHouse()
+		not mosquitoLayedEggs (this.layed==mosquito) over window:time(1d)
+	then
+		mosquitoLayedEggs eventLay = new mosquitoLayedEggs();
+		eventLay.setLayed(mosquito);
+		Eggs neweggs= house.addEggs();
+		insert(eventLay);
+		insert(neweggs);
+		//update(house);
+		System.out.println("mosquito lay");
+		
+		eggsHatched eventHatch = new eggsHatched();
+		eventHatch.setHatched(neweggs);
+		insert(eventHatch);
+end
+
+
+rule "raining"
+	when
+		house: House(focus==true)
+		not Rained (this.returningfocus==house) over window:time(15d)
+	then
+		house.setActivefocus(true);
+		System.out.println("raining");
+end
+
+rule "eggshatching"
+	when
+		eggs: Eggs()
+		house: House(activefocus==true) from eggs.getHouse()
+		not eggsHatched (this.hatched==eggs) over window:time(20d)
+	then
+		//house.removeEggs(eggs);
+		//update(house);
+		System.out.println("adding 10 mosquitos");
+		Mosquito newmosquito1 = house.addMosq();
+		insert(newmosquito1);
+		Mosquito newmosquito2 = house.addMosq();
+		insert(newmosquito2);
+		Mosquito newmosquito3 = house.addMosq();
+		insert(newmosquito3);
+		Mosquito newmosquito4 = house.addMosq();
+		insert(newmosquito4);
+		Mosquito newmosquito5 = house.addMosq();
+		insert(newmosquito5);
+		Mosquito newmosquito6 = house.addMosq();
+		insert(newmosquito6);
+		Mosquito newmosquito7 = house.addMosq();
+		insert(newmosquito7);
+		Mosquito newmosquito8 = house.addMosq();
+		insert(newmosquito8);
+		Mosquito newmosquito9 = house.addMosq();
+		insert(newmosquito9);
+		Mosquito newmosquito10 = house.addMosq();
+		insert(newmosquito10);
+		System.out.println("removingEGGS");
+        house.removingEggs(eggs);
+end
+
+
+rule "capturedMosquitoAndCallingAgent"
+@role(situation)
+@type(capturedMosquitoAndCallingAgent)
+	when
+		eggs: Eggs()
+		house: House(trap==true) from eggs.getHouse()
+		eggsHatched(this.hatched==eggs) over window:time(4d)
+	then
+		SituationHelper.situationDetected(drools);
+end
+
+
+rule "mosquitoCaptured"
+	when
+		mosquito: Mosquito()
+		$house: House() from mosquito.getHouse()
+		$sit: capturedMosquitoAndCallingAgent(house==$house)
+	then
+		$house.removeMosquito(mosquito);
+		retract(mosquito);
+		System.out.println("mosquito removed");
+end
+
+
+rule "AgentWorking"
+	when
+		$sit: capturedMosquitoAndCallingAgent(house:house, active==false)
+	then
+		house.newAgent();
+		List<Eggs> eggsInHouse = house.getEggs();
+		eggsInHouse.clear();
+			for(Mosquito m : house.getMosquitos()){
+			retract(m);
+			}
+		house.setActivefocus(false);
+		House houseant = house;
+		 for (int visited = 0; visited < 4; visited++) {
+            List<House> neighborHouse = houseant.getNeighbors();
+            Random random = new Random();
+            
+            int chooseHouse = random.nextInt((neighborHouse.size() - 1 - 0) + 1) + 0;
+            
+             House newHouse = neighborHouse.get(chooseHouse);
+             houseant.removeAgent();
+             newHouse.newAgent();
+              eggsInHouse = newHouse.getEggs();
+              eggsInHouse.clear();
+              for(Mosquito m : newHouse.getMosquitos()){
+			retract(m);
+			}
+              newHouse.setActivefocus(false);
+                        houseant = newHouse;
+                        //System.out.println("Visited house by agent");
+        }
+        houseant.removeAgent();
+		
+		System.out.println("Agent Worked");
+end
+		
